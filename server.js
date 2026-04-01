@@ -208,7 +208,6 @@ app.get('/api/export/json', (req, res) => {
   res.json({ surveys: rows, exported_at: new Date().toISOString() })
 })
 
-// admin 页面
 app.get('/admin', (_, res) => {
   res.setHeader('Content-Type', 'text/html; charset=utf-8')
   res.send(`<!DOCTYPE html>
@@ -273,10 +272,8 @@ l()
 
 const distPath = join(__dirname, 'dist')
 app.use(express.static(distPath))
-app.get('*', (req, res) => {
-  if (!req.path.startsWith('/api')) res.sendFile(join(distPath, 'index.html'))
-  else res.status(404).json({ error: 'Not found' })
-})
+app.get('/', (_, res) => res.sendFile(join(distPath, 'index.html')))
+app.get('/admin', (_, res) => {
 
 // ─── 启动 ──────────────────────────────────────────────────────────────────
 
