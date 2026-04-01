@@ -4,6 +4,7 @@ import { ChevronRight, ChevronLeft, Loader2, RotateCcw, CheckCircle2 } from 'luc
 
 // ─── 配置 ───────────────────────────────────────────────────────────────────
 
+//  Railway 部署后替换为你的后端地址，或设置环境变量 VITE_API_URL
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001'
 
 // 蓝色主题
@@ -72,40 +73,40 @@ const QUESTIONS = [
       { label: 'D', value: 'D', text: '76 – 100%', sub: 'Heavy reliance / 高度依赖' },
   ]},
   { id: 'rq1_autonomy', type: 'likert', section: 'RQ1 · Agency & Autonomy', icon: '🧭',
-    question: 'I usually have a clear logical plan first, then let AI handle implementation details — not the other way around.',
+    question: 'I usually have a clear logical plan first, then let AI handle implementation details — not the other way around.\n\n我通常先有明确的逻辑思路，再让 AI 辅助实现细节，而非让 AI 决定解题方案。',
     dimension: 'Autonomy / 自主性' },
   { id: 'rq1_independence', type: 'likert', section: 'RQ1 · Agency & Autonomy', icon: '⚡',
-    question: 'If I had to take an exam without internet access (no AI), I am confident I could complete tasks equivalent to my assignments.',
+    question: 'If I had to take an exam without internet access (no AI), I am confident I could complete tasks equivalent to my assignments.\n\n断网（无 AI）环境下，我有信心独立完成与作业难度相当的编程任务。',
     dimension: 'Independence / 独立性' },
   { id: 'rq1_competence', type: 'likert', section: 'RQ1 · Agency & Autonomy', icon: '💪',
-    question: 'After using AI assistance, my confidence in solving complex programming problems has substantially improved.',
+    question: 'After using AI assistance, my confidence in solving complex programming problems has substantially improved.\n\n使用 AI 辅助后，我解决复杂编程问题的自信心得到了实质性提升。',
     dimension: 'Competence / 胜任感' },
   { id: 'rq1_belonging', type: 'likert', section: 'RQ1 · Agency & Autonomy', icon: '🏠',
-    question: 'Even when using AI, I believe the core logic and final work belong to me — not the AI.',
+    question: 'Even when using AI, I believe the core logic and final work belong to me — not the AI.\n\n即使使用了 AI，我依然认为程序的核心逻辑和最终成果属于我个人，而非 AI。',
     dimension: 'Ownership / 归属感' },
   { id: 'rq2_review', type: 'likert', section: 'RQ2 · Logic & Error Detection', icon: '🔍',
-    question: 'Before running AI-generated code, I read through it line by line to check loops, branches, and logic structures.',
+    question: 'Before running AI-generated code, I read through it line by line to check loops, branches, and logic structures.\n\n运行 AI 代码前，我会逐行阅读并检查循环、分支等逻辑结构。',
     dimension: 'Code Review / 逻辑审查' },
   { id: 'rq2_detection', type: 'likert', section: 'RQ2 · Logic & Error Detection', icon: '🐛',
-    question: 'When AI code contains logical bugs (not runtime errors), I can quickly spot them by reading the code.',
+    question: 'When AI code contains logical bugs (not runtime errors), I can quickly spot them by reading the code.\n\n当 AI 代码存在逻辑漏洞（而非运行报错）时，我能通过阅读代码迅速察觉。',
     dimension: 'Bug Detection / 错误察觉' },
   { id: 'rq2_debug', type: 'likert', section: 'RQ2 · Logic & Error Detection', icon: '🔧',
-    question: 'When facing a bug, I prefer to manually fix it based on my own logic rather than throwing the error back at the AI.',
+    question: 'When facing a bug, I prefer to manually fix it based on my own logic rather than throwing the error back at the AI.\n\n面对 Bug，我倾向于根据自己的逻辑判断手动修改，而非直接丢回给 AI 重写。',
     dimension: 'Debugging / 调试模式' },
   { id: 'rq2_understanding', type: 'likert', section: 'RQ2 · Logic & Error Detection', icon: '🧠',
-    question: 'I can accurately explain what each line of AI-generated code does in the overall program logic.',
+    question: 'I can accurately explain what each line of AI-generated code does in the overall program logic.\n\n我能准确解释 AI 生成的每一行代码在程序整体逻辑中的作用。',
     dimension: 'Deep Understanding / 深度理解' },
   { id: 'rq3_depth', type: 'likert', section: 'RQ3 · Usage Pattern & Retention', icon: '📖',
-    question: 'I often ask AI to explain specific algorithm principles or function usage — not just request code.',
+    question: 'I often ask AI to explain specific algorithm principles or function usage — not just request code.\n\n我会经常要求 AI 解释特定的算法原理或函数用法，而不仅仅是索要代码。',
     dimension: 'Interaction Depth / 交互深度' },
   { id: 'rq3_mastery', type: 'likert', section: 'RQ3 · Usage Pattern & Retention', icon: '📚',
-    question: 'One week after completing an assignment, I can still clearly explain the core programming concepts involved.',
+    question: 'One week after completing an assignment, I can still clearly explain the core programming concepts involved.\n\n完成作业一周后，我依然能清晰向他人复述该作业涉及的核心编程概念。',
     dimension: 'Concept Retention / 概念掌握' },
   { id: 'rq3_reproduce', type: 'likert', section: 'RQ3 · Usage Pattern & Retention', icon: '🔄',
-    question: 'Without referencing AI chat history, I can independently reproduce the core logic of previously AI-assisted work.',
+    question: 'Without referencing AI chat history, I can independently reproduce the core logic of previously AI-assisted work.\n\n不参考 AI 历史记录的情况下，我可以独立复现之前通过 AI 辅助完成的核心逻辑。',
     dimension: 'Reproduction / 复现能力' },
   { id: 'rq3_evaluate', type: 'likert', section: 'RQ3 · Usage Pattern & Retention', icon: '⚖️',
-    question: 'I actively compare AI solutions against textbook / lecture "best practices" to check for deviations.',
+    question: 'I actively compare AI solutions against textbook / lecture "best practices" to check for deviations.\n\n我会主动对比 AI 给出的方案与课本/讲义中的"最佳实践"是否有偏差。',
     dimension: 'Critical Evaluation / 批判评估' },
 ]
 
@@ -274,7 +275,7 @@ function LikertScale({ value, onChange }: { value: number | null; onChange: (n: 
             </button>
 
             <span style={{ fontSize: '9px', color: isActive ? color : 'rgba(255,255,255,0.28)', textAlign: 'center', maxWidth: '64px', lineHeight: 1.3 }}>
-              {LIKERT_LABELS[n].split(' / ')[0]}
+              {LIKERT_LABELS[n]}
             </span>
           </div>
         )
@@ -604,8 +605,12 @@ export default function App() {
           >
             <motion.h2
               initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05, duration: 0.35 }}
-              style={{ fontSize: 'clamp(16px, 4.5vw, 22px)', fontWeight: '800', lineHeight: 1.55, color: '#f0f4ff', textAlign: 'center', marginBottom: '8px' }}>
-              {q.question}
+              style={{ fontSize: 'clamp(15px, 4vw, 20px)', fontWeight: '800', lineHeight: 1.55, color: '#f0f4ff', textAlign: 'center', marginBottom: '8px' }}>
+              {q.question.split('\n').map((line, i) => (
+                <span key={i} style={{ display: i === 0 ? 'block' : 'block', fontSize: i === 0 ? 'inherit' : 'clamp(13px, 3.5vw, 17px)', color: i === 0 ? '#f0f4ff' : 'rgba(240,244,255,0.6)', fontWeight: i === 0 ? '800' : '600' }}>
+                  {line}
+                </span>
+              ))}
             </motion.h2>
 
             {q.subtext && (
@@ -643,7 +648,7 @@ export default function App() {
                         border: `1px solid ${LIKERT_COLORS[selectedScore - 1]}44`,
                         color: LIKERT_COLORS[selectedScore - 1],
                       }}>
-                        {LIKERT_ICONS[selectedScore - 1]} {LIKERT_LABELS[selectedScore].split(' / ')[0]} · Score {selectedScore}
+                        {LIKERT_ICONS[selectedScore - 1]} {LIKERT_LABELS[selectedScore]} · {selectedScore}
                       </span>
                     </motion.div>
                   )}

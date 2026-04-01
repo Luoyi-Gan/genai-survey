@@ -6,15 +6,15 @@ import { dirname, join } from 'path'
 import { existsSync, mkdirSync } from 'fs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
-const app = express()
 const PORT = process.env.PORT || 3001
+const IS_PROD = process.env.NODE_ENV === 'production'
 
-// ─── 数据库 ─────────────────────────────────────────────────────────────────
-
-const DATA_DIR = join(__dirname, 'data')
+// Railway 用 /data 目录持久化 SQLite
+const DATA_DIR = IS_PROD ? '/data' : join(__dirname, 'data')
 if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true })
 
 const db = new Database(join(DATA_DIR, 'surveys.db'))
+const app = express()
 db.pragma('journal_mode = WAL')
 
 db.exec(`
@@ -55,7 +55,14 @@ if (!columns.includes('age')) {
 
 // ─── 中间件 ─────────────────────────────────────────────────────────────────
 
-app.use(cors())
+app.use(cors({
+  origin: [
+    'https://genai-survey.3253634996.workers.dev',
+    'https://genai-survey.pages.dev',
+    'http://localhost:5173',
+  ],
+  methods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
+}))
 app.use(express.json({ limit: '1mb' }))
 
 // ─── API 路由 ────────────────────────────────────────────────────────────────

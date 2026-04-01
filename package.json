@@ -8,7 +8,7 @@
     "dev:server": "node server.js",
     "dev:full": "node server.js & vite --port 5173 --host",
     "build": "tsc -b && vite build",
-    "start": "NODE_ENV=production node server.js",
+    "start": "node start.sh",
     "lint": "eslint .",
     "preview": "vite preview"
   },
