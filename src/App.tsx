@@ -118,6 +118,114 @@ const LIKERT_COLORS = ['#f43f5e', '#f97316', '#eab308', '#22c55e', '#2563eb']
 const LIKERT_ICONS = ['😟', '🤔', '😐', '🙂', '🤩']
 const LIKERT_LABELS = ['', 'Never / 从不', 'Rarely / 偶尔', 'Sometimes / 有时', 'Often / 经常', 'Always / 总是']
 
+// ─── Milestone 消息 ───────────────────────────────────────────────────────
+const MILESTONES = [
+  { pct: 20, emoji: '🎯', text: 'Good start! / 不错的开始!' },
+  { pct: 40, emoji: '🔥', text: 'Keep going! / 继续加油!' },
+  { pct: 60, emoji: '⚡', text: 'More than halfway! / 过半了!' },
+  { pct: 80, emoji: '🚀', text: 'Almost there! / 快完成了!' },
+  { pct: 100, emoji: '🎉', text: 'You made it! / 完成!' },
+]
+
+// ─── 彩色纸屑 ──────────────────────────────────────────────────────────────
+function Confetti() {
+  const pieces = Array.from({ length: 60 }, (_, i) => ({
+    id: i,
+    x: Math.random() * 100,
+    delay: Math.random() * 0.8,
+    duration: 1.2 + Math.random() * 1.2,
+    color: ['#2563eb', '#06b6d4', '#f59e0b', '#ef4444', '#22c55e', '#a855f7'][i % 6],
+    size: 6 + Math.random() * 8,
+    drift: (Math.random() - 0.5) * 200,
+  }))
+  return (
+    <div style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 9999, overflow: 'hidden' }}>
+      {pieces.map((p) => (
+        <motion.div
+          key={p.id}
+          initial={{ y: -20, x: `${p.x}vw`, opacity: 1, rotate: 0 }}
+          animate={{
+            y: '110vh',
+            x: `${p.x + p.drift}vw`,
+            opacity: [1, 1, 0],
+            rotate: Math.random() * 720,
+          }}
+          transition={{ duration: p.duration, delay: p.delay, ease: 'easeIn' }}
+          style={{
+            position: 'absolute', top: 0, left: 0,
+            width: p.size, height: p.size,
+            background: p.color,
+            borderRadius: Math.random() > 0.5 ? '50%' : '2px',
+          }}
+        />
+      ))}
+    </div>
+  )
+}
+
+// ─── 背景粒子 ───────────────────────────────────────────────────────────────
+function ParticleField() {
+  const particles = Array.from({ length: 20 }, (_, i) => ({
+    id: i,
+    x: Math.random() * 100,
+    y: Math.random() * 100,
+    size: 2 + Math.random() * 3,
+    duration: 8 + Math.random() * 12,
+    delay: Math.random() * 5,
+    opacity: 0.08 + Math.random() * 0.15,
+  }))
+  return (
+    <div style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 0, overflow: 'hidden' }}>
+      {particles.map((p) => (
+        <motion.div
+          key={p.id}
+          animate={{ y: [0, -40, 0], opacity: [p.opacity, p.opacity * 2, p.opacity] }}
+          transition={{ duration: p.duration, delay: p.delay, repeat: Infinity, ease: 'easeInOut' }}
+          style={{
+            position: 'absolute', top: `${p.y}%`, left: `${p.x}%`,
+            width: p.size, height: p.size,
+            background: '#06b6d4', borderRadius: '50%',
+          }}
+        />
+      ))}
+    </div>
+  )
+}
+
+// ─── 里程碑气泡 ─────────────────────────────────────────────────────────────
+function MilestoneBubble({ pct }: { pct: number }) {
+  const milestone = MILESTONES.find((m) => m.pct === pct)
+  if (!milestone) return null
+  return (
+    <motion.div
+      key={pct}
+      initial={{ scale: 0, y: 20, opacity: 0 }}
+      animate={{ scale: 1, y: 0, opacity: 1 }}
+      exit={{ scale: 0, y: -20, opacity: 0 }}
+      transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+      style={{
+        position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+        zIndex: 9998,
+        background: 'rgba(37,99,235,0.95)',
+        border: '1px solid rgba(6,182,212,0.5)',
+        borderRadius: '24px',
+        padding: '20px 32px',
+        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px',
+        boxShadow: '0 20px 60px rgba(0,0,0,0.5), 0 0 40px rgba(37,99,235,0.3)',
+        backdropFilter: 'blur(20px)',
+      }}
+    >
+      <span style={{ fontSize: '40px' }}>{milestone.emoji}</span>
+      <p style={{ fontSize: '15px', fontWeight: '700', color: '#fff', textAlign: 'center', whiteSpace: 'nowrap' }}>
+        {milestone.text}
+      </p>
+      <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)' }}>
+        {pct}% ✓
+      </p>
+    </motion.div>
+  )
+}
+
 // ─── 工具函数 ───────────────────────────────────────────────────────────────
 
 function getSectionIdx(q: (typeof QUESTIONS)[0]) {
@@ -386,8 +494,11 @@ export default function App() {
   const [direction, setDirection] = useState(1)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showThankYou, setShowThankYou] = useState(false)
+  const [showConfetti, setShowConfetti] = useState(false)
+  const [milestone, setMilestone] = useState<number | null>(null)
   const touchStartX = useRef(0)
   const isScrolling = useRef(false)
+  const lastMilestone = useRef<number>(0)
 
   const q = QUESTIONS[current]
   const progress = (current / (QUESTIONS.length - 1)) * 100
@@ -396,6 +507,14 @@ export default function App() {
   const goNext = useCallback(() => {
     if (current < QUESTIONS.length - 1) {
       setDirection(1)
+      const nextProgress = ((current + 1) / (QUESTIONS.length - 1)) * 100
+      // 检测里程碑
+      const crossed = MILESTONES.find(m => m.pct <= nextProgress && m.pct > lastMilestone.current)
+      if (crossed) {
+        lastMilestone.current = crossed.pct
+        setMilestone(crossed.pct)
+        setTimeout(() => setMilestone(null), 2000)
+      }
       setCurrent((c) => c + 1)
     } else {
       handleSubmit()
@@ -408,6 +527,7 @@ export default function App() {
 
   const handleSubmit = async () => {
     setIsSubmitting(true)
+    setShowConfetti(true)
     try {
       await fetch(`${API_BASE}/api/survey`, {
         method: 'POST',
@@ -482,6 +602,19 @@ export default function App() {
         <div className="orb" style={{ width: 400, height: 400, background: '#06b6d418', bottom: '-10%', left: '-10%', animationDuration: '10s', animationDelay: '-3s' }} />
         <div className="bg-grid" style={{ position: 'absolute', inset: 0 }} />
       </div>
+
+      {/* 动态粒子 */}
+      <ParticleField />
+
+      {/* 彩屑 */}
+      <AnimatePresence>
+        {showConfetti && <Confetti />}
+      </AnimatePresence>
+
+      {/* 里程碑气泡 */}
+      <AnimatePresence>
+        {milestone !== null && <MilestoneBubble pct={milestone} />}
+      </AnimatePresence>
 
       {/* 顶部进度 */}
       <div style={{ position: 'relative', zIndex: 10, padding: '20px 20px 0' }}>
