@@ -1,60 +1,102 @@
 import express from 'express'
 import cors from 'cors'
-import Database from 'better-sqlite3'
+import initSqlJs from 'sql.js'
 import { fileURLToPath } from 'url'
 import { dirname, join } from 'path'
-import { existsSync, mkdirSync } from 'fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const PORT = process.env.PORT || 3001
 const IS_PROD = process.env.NODE_ENV === 'production'
 
-// Railway 用 /data 目录持久化 SQLite
 const DATA_DIR = IS_PROD ? '/data' : join(__dirname, 'data')
 if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true })
+const DB_PATH = join(DATA_DIR, 'surveys.db')
 
-const db = new Database(join(DATA_DIR, 'surveys.db'))
+// ─── 数据库（sql.js 纯 JS，无需编译） ────────────────────────────────────────
+
+let db
+
+async function initDb() {
+  const SQL = await initSqlJs()
+
+  // 加载已有数据或创建新数据库
+  if (existsSync(DB_PATH)) {
+    const buf = readFileSync(DB_PATH)
+    db = new SQL.Database(buf)
+  } else {
+    db = new SQL.Database()
+  }
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS surveys (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      submitted_at TEXT DEFAULT (datetime('now')),
+      gender TEXT,
+      age TEXT,
+      gpa TEXT,
+      programming_grade TEXT,
+      ai_ratio TEXT,
+      rq1_autonomy INTEGER,
+      rq1_independence INTEGER,
+      rq1_competence INTEGER,
+      rq1_belonging INTEGER,
+      rq2_review INTEGER,
+      rq2_detection INTEGER,
+      rq2_debug INTEGER,
+      rq2_understanding INTEGER,
+      rq3_depth INTEGER,
+      rq3_mastery INTEGER,
+      rq3_reproduce INTEGER,
+      rq3_evaluate INTEGER,
+      rq_total_score INTEGER,
+      rq_avg_score REAL,
+      raw_json TEXT
+    )
+  `)
+
+  // 迁移旧数据库（已有表但缺字段）
+  try {
+    const cols = db.exec("PRAGMA table_info(surveys)")
+    const colNames = cols.length > 0 ? cols[0].values.map(v => v[1]) : []
+    if (!colNames.includes('gender')) db.run("ALTER TABLE surveys ADD COLUMN gender TEXT")
+    if (!colNames.includes('age')) db.run("ALTER TABLE surveys ADD COLUMN age TEXT")
+  } catch (_) {}
+
+  saveDb()
+  console.log(`📦 Database ready at ${DB_PATH}`)
+}
+
+function saveDb() {
+  if (!db) return
+  const data = db.export()
+  const buf = Buffer.from(data)
+  writeFileSync(DB_PATH, buf)
+}
+
+function run(sql, params = []) {
+  db.run(sql, params)
+  saveDb()
+  return { lastInsertRowid: db.exec("SELECT last_insert_rowid()")[0]?.values[0]?.[0] ?? 0 }
+}
+
+function all(sql, params = []) {
+  const stmt = db.prepare(sql)
+  if (params.length) stmt.bind(params)
+  const rows = []
+  while (stmt.step()) rows.push(stmt.getAsObject())
+  stmt.free()
+  return rows
+}
+
+function one(sql, params = []) {
+  const rows = all(sql, params)
+  return rows[0] || null
+}
+
+// ─── Express App ─────────────────────────────────────────────────────────────
+
 const app = express()
-db.pragma('journal_mode = WAL')
-
-db.exec(`
-  CREATE TABLE IF NOT EXISTS surveys (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    submitted_at TEXT DEFAULT (datetime('now')),
-    gender TEXT,
-    age TEXT,
-    gpa TEXT,
-    programming_grade TEXT,
-    ai_ratio TEXT,
-    rq1_autonomy INTEGER,
-    rq1_independence INTEGER,
-    rq1_competence INTEGER,
-    rq1_belonging INTEGER,
-    rq2_review INTEGER,
-    rq2_detection INTEGER,
-    rq2_debug INTEGER,
-    rq2_understanding INTEGER,
-    rq3_depth INTEGER,
-    rq3_mastery INTEGER,
-    rq3_reproduce INTEGER,
-    rq3_evaluate INTEGER,
-    rq_total_score INTEGER,
-    rq_avg_score REAL,
-    raw_json TEXT
-  );
-`)
-
-// 迁移旧数据库（已有表但缺字段）
-const columns = db.prepare("PRAGMA table_info(surveys)").all().map((r: { name: string }) => r.name)
-if (!columns.includes('gender')) {
-  try { db.exec("ALTER TABLE surveys ADD COLUMN gender TEXT") } catch (_) {}
-}
-if (!columns.includes('age')) {
-  try { db.exec("ALTER TABLE surveys ADD COLUMN age TEXT") } catch (_) {}
-}
-
-// ─── 中间件 ─────────────────────────────────────────────────────────────────
-
 app.use(cors({
   origin: [
     'https://genai-survey.3253634996.workers.dev',
@@ -67,7 +109,6 @@ app.use(express.json({ limit: '1mb' }))
 
 // ─── API 路由 ────────────────────────────────────────────────────────────────
 
-// 提交问卷
 app.post('/api/survey', (req, res) => {
   const { answers } = req.body
   if (!answers || typeof answers !== 'object') {
@@ -78,59 +119,50 @@ app.post('/api/survey', (req, res) => {
   const rqTotal = rqEntries.reduce((s, [, v]) => s + (Number(v) || 0), 0)
   const rqAvg = rqEntries.length > 0 ? +(rqTotal / rqEntries.length).toFixed(3) : 0
 
-  const stmt = db.prepare(`
+  const result = run(`
     INSERT INTO surveys (
       gender, age, gpa, programming_grade, ai_ratio,
       rq1_autonomy, rq1_independence, rq1_competence, rq1_belonging,
       rq2_review, rq2_detection, rq2_debug, rq2_understanding,
       rq3_depth, rq3_mastery, rq3_reproduce, rq3_evaluate,
       rq_total_score, rq_avg_score, raw_json
-    ) VALUES (
-      @gender, @age, @gpa, @programming_grade, @ai_ratio,
-      @rq1_autonomy, @rq1_independence, @rq1_competence, @rq1_belonging,
-      @rq2_review, @rq2_detection, @rq2_debug, @rq2_understanding,
-      @rq3_depth, @rq3_mastery, @rq3_reproduce, @rq3_evaluate,
-      @rq_total_score, @rq_avg_score, @raw_json
-    )
-  `)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `, [
+    String(answers.gender || ''),
+    String(answers.age || ''),
+    String(answers.gpa || ''),
+    String(answers.programming_grade || ''),
+    String(answers.ai_ratio || ''),
+    answers.rq1_autonomy ?? null,
+    answers.rq1_independence ?? null,
+    answers.rq1_competence ?? null,
+    answers.rq1_belonging ?? null,
+    answers.rq2_review ?? null,
+    answers.rq2_detection ?? null,
+    answers.rq2_debug ?? null,
+    answers.rq2_understanding ?? null,
+    answers.rq3_depth ?? null,
+    answers.rq3_mastery ?? null,
+    answers.rq3_reproduce ?? null,
+    answers.rq3_evaluate ?? null,
+    rqTotal,
+    rqAvg,
+    JSON.stringify(answers),
+  ])
 
-  const info = stmt.run({
-    gender: String(answers.gender || ''),
-    age: String(answers.age || ''),
-    gpa: String(answers.gpa || ''),
-    programming_grade: String(answers.programming_grade || ''),
-    ai_ratio: String(answers.ai_ratio || ''),
-    rq1_autonomy: answers.rq1_autonomy ?? null,
-    rq1_independence: answers.rq1_independence ?? null,
-    rq1_competence: answers.rq1_competence ?? null,
-    rq1_belonging: answers.rq1_belonging ?? null,
-    rq2_review: answers.rq2_review ?? null,
-    rq2_detection: answers.rq2_detection ?? null,
-    rq2_debug: answers.rq2_debug ?? null,
-    rq2_understanding: answers.rq2_understanding ?? null,
-    rq3_depth: answers.rq3_depth ?? null,
-    rq3_mastery: answers.rq3_mastery ?? null,
-    rq3_reproduce: answers.rq3_reproduce ?? null,
-    rq3_evaluate: answers.rq3_evaluate ?? null,
-    rq_total_score: rqTotal,
-    rq_avg_score: rqAvg,
-    raw_json: JSON.stringify(answers),
-  })
-
-  res.json({ success: true, id: info.lastInsertRowid, rq_total_score: rqTotal, rq_avg_score: rqAvg })
+  res.json({ success: true, id: result.lastInsertRowid, rq_total_score: rqTotal, rq_avg_score: rqAvg })
 })
 
-// 获取统计摘要
 app.get('/api/stats', (req, res) => {
-  const total = db.prepare('SELECT COUNT(*) as count FROM surveys').get()
-  const rqAvg = db.prepare('SELECT AVG(rq_avg_score) as avg, AVG(rq_total_score) as total_avg FROM surveys').get()
-  const rq1Avg = db.prepare('SELECT AVG((rq1_autonomy + rq1_independence + rq1_competence + rq1_belonging) / 4.0) as avg FROM surveys WHERE rq1_autonomy IS NOT NULL').get()
-  const rq2Avg = db.prepare('SELECT AVG((rq2_review + rq2_detection + rq2_debug + rq2_understanding) / 4.0) as avg FROM surveys WHERE rq2_review IS NOT NULL').get()
-  const rq3Avg = db.prepare('SELECT AVG((rq3_depth + rq3_mastery + rq3_reproduce + rq3_evaluate) / 4.0) as avg FROM surveys WHERE rq3_depth IS NOT NULL').get()
-  const gpaDist = db.prepare("SELECT gpa, COUNT(*) as count FROM surveys WHERE gpa != '' GROUP BY gpa").all()
-  const aiDist = db.prepare("SELECT ai_ratio, COUNT(*) as count FROM surveys WHERE ai_ratio != '' GROUP BY ai_ratio").all()
-  const genderDist = db.prepare("SELECT gender, COUNT(*) as count FROM surveys WHERE gender != '' GROUP BY gender").all()
-  const ageDist = db.prepare("SELECT age, COUNT(*) as count FROM surveys WHERE age != '' GROUP BY age").all()
+  const total = one('SELECT COUNT(*) as count FROM surveys') || { count: 0 }
+  const rqAvg = one('SELECT AVG(rq_avg_score) as avg, AVG(rq_total_score) as total_avg FROM surveys') || {}
+  const rq1Avg = one("SELECT AVG((rq1_autonomy + rq1_independence + rq1_competence + rq1_belonging) / 4.0) as avg FROM surveys WHERE rq1_autonomy IS NOT NULL") || {}
+  const rq2Avg = one("SELECT AVG((rq2_review + rq2_detection + rq2_debug + rq2_understanding) / 4.0) as avg FROM surveys WHERE rq2_review IS NOT NULL") || {}
+  const rq3Avg = one("SELECT AVG((rq3_depth + rq3_mastery + rq3_reproduce + rq3_evaluate) / 4.0) as avg FROM surveys WHERE rq3_depth IS NOT NULL") || {}
+  const gpaDist = all("SELECT gpa as gpa, COUNT(*) as count FROM surveys WHERE gpa != '' GROUP BY gpa")
+  const aiDist = all("SELECT ai_ratio as ai_ratio, COUNT(*) as count FROM surveys WHERE ai_ratio != '' GROUP BY ai_ratio")
+  const genderDist = all("SELECT gender as gender, COUNT(*) as count FROM surveys WHERE gender != '' GROUP BY gender")
+  const ageDist = all("SELECT age as age, COUNT(*) as count FROM surveys WHERE age != '' GROUP BY age")
 
   res.json({
     totalResponses: total.count,
@@ -146,41 +178,37 @@ app.get('/api/stats', (req, res) => {
   })
 })
 
-// 获取所有原始数据（admin）
 app.get('/api/surveys', (req, res) => {
-  const rows = db.prepare('SELECT * FROM surveys ORDER BY id DESC').all()
+  const rows = all('SELECT * FROM surveys ORDER BY id DESC')
   res.json({ surveys: rows })
 })
 
-// 删除单条数据
 app.delete('/api/survey/:id', (req, res) => {
-  db.prepare('DELETE FROM surveys WHERE id = ?').run(req.params.id)
+  run('DELETE FROM surveys WHERE id = ?', [Number(req.params.id)])
   res.json({ success: true })
 })
 
-// 导出 CSV
 app.get('/api/export/csv', (req, res) => {
-  const rows = db.prepare('SELECT * FROM surveys ORDER BY id DESC').all()
-  const headers = ['ID', '提交时间', ...Object.keys(rows[0] || {}).filter(k => k !== 'raw_json')]
+  const rows = all('SELECT * FROM surveys ORDER BY id DESC')
+  const keys = rows.length ? Object.keys(rows[0]) : []
+  const headers = ['ID', 'Time', ...keys]
   const csv = [
     headers.join(','),
-    ...rows.map(r => Object.values(r).join(','))
+    ...rows.map(r => Object.values(r).map(v => `"${v ?? ''}"`).join(','))
   ].join('\n')
-  res.setHeader('Content-Type', 'text/csv')
+  res.setHeader('Content-Type', 'text/csv;charset=utf-8')
   res.setHeader('Content-Disposition', `attachment; filename=surveys_${new Date().toISOString().slice(0,10)}.csv`)
   res.send(csv)
 })
 
-// 导出 JSON
 app.get('/api/export/json', (req, res) => {
-  const rows = db.prepare('SELECT * FROM surveys ORDER BY id DESC').all()
+  const rows = all('SELECT * FROM surveys ORDER BY id DESC')
   res.setHeader('Content-Type', 'application/json')
   res.setHeader('Content-Disposition', `attachment; filename=surveys_${new Date().toISOString().slice(0,10)}.json`)
   res.json({ surveys: rows, exported_at: new Date().toISOString() })
 })
 
-// ─── admin 页面 ──────────────────────────────────────────────────────────────
-
+// admin 页面
 app.get('/admin', (_, res) => {
   res.setHeader('Content-Type', 'text/html; charset=utf-8')
   res.send(`<!DOCTYPE html>
@@ -243,7 +271,7 @@ l()
 
 // ─── 静态文件（生产环境） ───────────────────────────────────────────────────
 
-if (process.env.NODE_ENV === 'production') {
+if (IS_PROD) {
   const distPath = join(__dirname, 'dist')
   app.use(express.static(distPath))
   app.get('*', (req, res) => {
@@ -254,6 +282,7 @@ if (process.env.NODE_ENV === 'production') {
 
 // ─── 启动 ──────────────────────────────────────────────────────────────────
 
+await initDb()
 app.listen(PORT, () => {
   console.log(`\n🚀 Survey Server running on http://localhost:${PORT}`)
   console.log(`📊 Admin panel:  http://localhost:${PORT}/admin`)
