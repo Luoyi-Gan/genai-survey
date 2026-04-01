@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react'
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ChevronRight, ChevronLeft, Loader2, RotateCcw, CheckCircle2 } from 'lucide-react'
 
@@ -118,73 +118,152 @@ const LIKERT_COLORS = ['#f43f5e', '#f97316', '#eab308', '#22c55e', '#2563eb']
 const LIKERT_ICONS = ['😟', '🤔', '😐', '🙂', '🤩']
 const LIKERT_LABELS = ['', 'Never / 从不', 'Rarely / 偶尔', 'Sometimes / 有时', 'Often / 经常', 'Always / 总是']
 
+// ─── 鼠标拖尾粒子 ──────────────────────────────────────────────────────
+function MouseSparkle() {
+  const [sparks, setSparks] = useState<{ x: number; y: number; id: number }[]>([])
+  const trailRef = useRef<{ x: number; y: number } | null>(null)
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (trailRef.current) {
+        const dx = e.clientX - trailRef.current.x
+        const dy = e.clientY - trailRef.current.y
+        if (Math.hypot(dx, dy) > 20) {
+          setSparks((s) => [...s.slice(-18), { x: e.clientX, y: e.clientY, id: Date.now() + Math.random() }])
+          trailRef.current = { x: e.clientX, y: e.clientY }
+        }
+      } else {
+        trailRef.current = { x: e.clientX, y: e.clientY }
+      }
+    }
+    window.addEventListener('mousemove', handler)
+    return () => window.removeEventListener('mousemove', handler)
+  }, [])
+
+  return (
+    <>
+      {sparks.map((s) => (
+        <motion.div
+          key={s.id}
+          initial={{ scale: 1, opacity: 0.8 }}
+          animate={{ scale: 0, opacity: 0 }}
+          transition={{ duration: 0.8, ease: 'easeOut' }}
+          style={{
+            position: 'fixed', left: s.x, top: s.y, zIndex: 9999,
+            width: 6, height: 6, borderRadius: '50%',
+            background: ['#2563eb', '#06b6d4', '#f59e0b', '#a855f7', '#22c55e'][Math.floor(Math.random() * 5)],
+            pointerEvents: 'none', marginLeft: -3, marginTop: -3,
+            boxShadow: '0 0 8px currentColor',
+          }}
+        />
+      ))}
+    </>
+  )
+}
+
+// ─── 背景光球 ──────────────────────────────────────────────────────────────
+function AmbientOrbs() {
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none', overflow: 'hidden' }}>
+      <motion.div
+        animate={{ x: [0, 60, 0], y: [0, -40, 0], scale: [1, 1.1, 1] }}
+        transition={{ duration: 18, repeat: Infinity, ease: 'easeInOut' }}
+        style={{ position: 'absolute', width: 700, height: 700, borderRadius: '50%', background: 'radial-gradient(circle, rgba(37,99,235,0.12) 0%, transparent 70%)', top: '-20%', right: '-15%' }}
+      />
+      <motion.div
+        animate={{ x: [0, -50, 0], y: [0, 50, 0], scale: [1, 1.15, 1] }}
+        transition={{ duration: 14, repeat: Infinity, ease: 'easeInOut', delay: 2 }}
+        style={{ position: 'absolute', width: 500, height: 500, borderRadius: '50%', background: 'radial-gradient(circle, rgba(6,182,212,0.1) 0%, transparent 70%)', bottom: '-10%', left: '-10%' }}
+      />
+      <motion.div
+        animate={{ x: [0, 40, 0], y: [0, 30, 0] }}
+        transition={{ duration: 22, repeat: Infinity, ease: 'easeInOut', delay: 5 }}
+        style={{ position: 'absolute', width: 300, height: 300, borderRadius: '50%', background: 'radial-gradient(circle, rgba(168,85,247,0.08) 0%, transparent 70%)', top: '40%', left: '55%' }}
+      />
+      <motion.div
+        animate={{ x: [0, -30, 0], y: [0, -20, 0] }}
+        transition={{ duration: 12, repeat: Infinity, ease: 'easeInOut', delay: 3 }}
+        style={{ position: 'absolute', width: 200, height: 200, borderRadius: '50%', background: 'radial-gradient(circle, rgba(245,158,11,0.06) 0%, transparent 70%)', bottom: '30%', right: '10%' }}
+      />
+    </div>
+  )
+}
+
+// ─── 圆形进度环 ──────────────────────────────────────────────────────────
+function CircularProgress({ pct }: { pct: number }) {
+  const r = 22
+  const circ = 2 * Math.PI * r
+  const fill = (pct / 100) * circ
+  return (
+    <div style={{ position: 'relative', width: 60, height: 60, flexShrink: 0 }}>
+      <svg width="60" height="60" style={{ transform: 'rotate(-90deg)' }}>
+        <circle cx="30" cy="30" r={r} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="3" />
+        <motion.circle
+          cx="30" cy="30" r={r} fill="none"
+          stroke="url(#progressGrad)" strokeWidth="3.5" strokeLinecap="round"
+          strokeDasharray={circ}
+          animate={{ strokeDashoffset: circ - fill }}
+          transition={{ type: 'spring', stiffness: 100, damping: 20 }}
+          style={{ filter: 'drop-shadow(0 0 6px rgba(37,99,235,0.6))' }}
+        />
+        <defs>
+          <linearGradient id="progressGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor="#2563eb" />
+            <stop offset="100%" stopColor="#06b6d4" />
+          </linearGradient>
+        </defs>
+      </svg>
+      <div style={{
+        position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontSize: '12px', fontWeight: '800', color: 'rgba(240,244,255,0.8)',
+      }}>
+        {Math.round(pct)}%
+      </div>
+    </div>
+  )
+}
+
 // ─── Milestone 消息 ───────────────────────────────────────────────────────
 const MILESTONES = [
-  { pct: 20, emoji: '🎯', text: 'Good start! / 不错的开始!' },
-  { pct: 40, emoji: '🔥', text: 'Keep going! / 继续加油!' },
-  { pct: 60, emoji: '⚡', text: 'More than halfway! / 过半了!' },
-  { pct: 80, emoji: '🚀', text: 'Almost there! / 快完成了!' },
-  { pct: 100, emoji: '🎉', text: 'You made it! / 完成!' },
+  { pct: 20, emoji: '🎯', text: 'Good start!', sub: '不错的开始!' },
+  { pct: 40, emoji: '🔥', text: 'Keep going!', sub: '继续加油!' },
+  { pct: 60, emoji: '⚡', text: 'Halfway!', sub: '过了一半!' },
+  { pct: 80, emoji: '🚀', text: 'Almost there!', sub: '快完成了!' },
+  { pct: 100, emoji: '🎉', text: 'You made it!', sub: '完成!' },
 ]
 
 // ─── 彩色纸屑 ──────────────────────────────────────────────────────────────
 function Confetti() {
-  const pieces = Array.from({ length: 60 }, (_, i) => ({
+  const pieces = useMemo(() => Array.from({ length: 80 }, (_, i) => ({
     id: i,
     x: Math.random() * 100,
-    delay: Math.random() * 0.8,
-    duration: 1.2 + Math.random() * 1.2,
-    color: ['#2563eb', '#06b6d4', '#f59e0b', '#ef4444', '#22c55e', '#a855f7'][i % 6],
-    size: 6 + Math.random() * 8,
-    drift: (Math.random() - 0.5) * 200,
-  }))
+    delay: Math.random() * 1.2,
+    duration: 1.5 + Math.random() * 1.5,
+    color: ['#2563eb', '#06b6d4', '#f59e0b', '#ef4444', '#22c55e', '#a855f7', '#f43f5e'][i % 7],
+    size: 5 + Math.random() * 10,
+    drift: (Math.random() - 0.5) * 250,
+    shape: i % 3,
+  })), [])
   return (
     <div style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 9999, overflow: 'hidden' }}>
       {pieces.map((p) => (
         <motion.div
           key={p.id}
-          initial={{ y: -20, x: `${p.x}vw`, opacity: 1, rotate: 0 }}
+          initial={{ y: -30, x: `${p.x}vw`, opacity: 1, rotate: 0, scale: 1 }}
           animate={{
-            y: '110vh',
+            y: '105vh',
             x: `${p.x + p.drift}vw`,
             opacity: [1, 1, 0],
-            rotate: Math.random() * 720,
+            rotate: (Math.random() - 0.5) * 1080,
+            scale: [1, 1.2, 0.8],
           }}
           transition={{ duration: p.duration, delay: p.delay, ease: 'easeIn' }}
           style={{
             position: 'absolute', top: 0, left: 0,
             width: p.size, height: p.size,
             background: p.color,
-            borderRadius: Math.random() > 0.5 ? '50%' : '2px',
-          }}
-        />
-      ))}
-    </div>
-  )
-}
-
-// ─── 背景粒子 ───────────────────────────────────────────────────────────────
-function ParticleField() {
-  const particles = Array.from({ length: 20 }, (_, i) => ({
-    id: i,
-    x: Math.random() * 100,
-    y: Math.random() * 100,
-    size: 2 + Math.random() * 3,
-    duration: 8 + Math.random() * 12,
-    delay: Math.random() * 5,
-    opacity: 0.08 + Math.random() * 0.15,
-  }))
-  return (
-    <div style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 0, overflow: 'hidden' }}>
-      {particles.map((p) => (
-        <motion.div
-          key={p.id}
-          animate={{ y: [0, -40, 0], opacity: [p.opacity, p.opacity * 2, p.opacity] }}
-          transition={{ duration: p.duration, delay: p.delay, repeat: Infinity, ease: 'easeInOut' }}
-          style={{
-            position: 'absolute', top: `${p.y}%`, left: `${p.x}%`,
-            width: p.size, height: p.size,
-            background: '#06b6d4', borderRadius: '50%',
+            borderRadius: p.shape === 0 ? '50%' : p.shape === 1 ? '2px' : '4px',
+            boxShadow: `0 0 ${p.size}px ${p.color}88`,
           }}
         />
       ))}
@@ -194,34 +273,34 @@ function ParticleField() {
 
 // ─── 里程碑气泡 ─────────────────────────────────────────────────────────────
 function MilestoneBubble({ pct }: { pct: number }) {
-  const milestone = MILESTONES.find((m) => m.pct === pct)
-  if (!milestone) return null
+  const m = MILESTONES.find(m => m.pct === pct)
+  if (!m) return null
   return (
     <motion.div
-      key={pct}
-      initial={{ scale: 0, y: 20, opacity: 0 }}
-      animate={{ scale: 1, y: 0, opacity: 1 }}
-      exit={{ scale: 0, y: -20, opacity: 0 }}
-      transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+      initial={{ scale: 0, opacity: 0 }}
+      animate={{ scale: 1, opacity: 1 }}
+      exit={{ scale: 0, opacity: 0, y: -30 }}
+      transition={{ type: 'spring', stiffness: 280, damping: 18 }}
       style={{
         position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
-        zIndex: 9998,
-        background: 'rgba(37,99,235,0.95)',
-        border: '1px solid rgba(6,182,212,0.5)',
-        borderRadius: '24px',
-        padding: '20px 32px',
-        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px',
-        boxShadow: '0 20px 60px rgba(0,0,0,0.5), 0 0 40px rgba(37,99,235,0.3)',
-        backdropFilter: 'blur(20px)',
+        zIndex: 9998, textAlign: 'center',
+        background: 'rgba(10,10,20,0.95)',
+        border: '1px solid rgba(37,99,235,0.4)',
+        borderRadius: '28px', padding: '28px 40px',
+        boxShadow: '0 0 80px rgba(37,99,235,0.4), 0 30px 80px rgba(0,0,0,0.6)',
+        backdropFilter: 'blur(30px)',
       }}
     >
-      <span style={{ fontSize: '40px' }}>{milestone.emoji}</span>
-      <p style={{ fontSize: '15px', fontWeight: '700', color: '#fff', textAlign: 'center', whiteSpace: 'nowrap' }}>
-        {milestone.text}
-      </p>
-      <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)' }}>
-        {pct}% ✓
-      </p>
+      <motion.div
+        animate={{ scale: [1, 1.3, 1] }}
+        transition={{ duration: 0.6, delay: 0.1 }}
+        style={{ fontSize: '56px', marginBottom: '12px' }}
+      >
+        {m.emoji}
+      </motion.div>
+      <p style={{ fontSize: '20px', fontWeight: '900', color: '#fff', marginBottom: '4px' }}>{m.text}</p>
+      <p style={{ fontSize: '14px', color: 'rgba(255,255,255,0.5)' }}>{m.sub}</p>
+      <p style={{ fontSize: '11px', color: 'rgba(37,99,235,0.7)', marginTop: '10px', letterSpacing: '0.1em' }}>{pct}% ✓</p>
     </motion.div>
   )
 }
@@ -261,7 +340,7 @@ function NavButton({ onClick, disabled, children, isPrimary, pulseEnabled }: {
         border: isPrimary ? 'none' : '1px solid rgba(255,255,255,0.08)',
         background: isPrimary ? THEME.gradient : 'rgba(255,255,255,0.03)',
         color: isPrimary ? '#fff' : 'rgba(240,244,255,0.6)',
-        fontSize: isPrimary ? '15px' : '14px', fontWeight: '700',
+        fontSize: isPrimary ? 'clamp(14px, 1.5vw, 17px)' : 'clamp(13px, 1.3vw, 15px)', fontWeight: '700',
         display: 'flex', alignItems: 'center', gap: '6px',
         boxShadow: isPrimary && !disabled ? `0 8px 32px ${THEME.primaryGlow}` : 'none',
         backdropFilter: 'blur(12px)',
@@ -296,7 +375,7 @@ function OptionCard({ option, selected, onSelect, index }: {
       transition={{ delay: index * 0.06, type: 'spring', stiffness: 320, damping: 28 }}
       onClick={onSelect}
       style={{
-        width: '100%', minHeight: '64px', display: 'flex', alignItems: 'center', gap: '14px',
+        width: '100%', minHeight: 'clamp(60px, 8vw, 72px)', display: 'flex', alignItems: 'center', gap: 'clamp(12px, 2vw, 18px)',
         padding: '16px 18px', borderRadius: '18px',
         border: `1.5px solid ${selected ? `${THEME.primary}88` : 'rgba(255,255,255,0.07)'}`,
         background: selected ? `linear-gradient(135deg, rgba(37,99,235,0.18), rgba(6,182,212,0.06))` : 'rgba(255,255,255,0.02)',
@@ -317,7 +396,7 @@ function OptionCard({ option, selected, onSelect, index }: {
         {selected ? '✓' : option.label}
       </div>
       <div style={{ flex: 1 }}>
-        <div style={{ fontSize: '15px', fontWeight: '600', color: selected ? '#f0f4ff' : 'rgba(240,244,255,0.75)' }}>
+        <div style={{ fontSize: 'clamp(14px, 1.8vw, 17px)', fontWeight: '600', color: selected ? '#f0f4ff' : 'rgba(240,244,255,0.75)' }}>
           {option.text}
         </div>
         {option.sub && (
@@ -362,7 +441,7 @@ function LikertScale({ value, onChange }: { value: number | null; onChange: (n: 
             <button
               onClick={() => handleSelect(n)}
               style={{
-                width: '64px', height: '64px', borderRadius: '16px', border: '1.5px solid',
+                width: 'clamp(56px, 8vw, 72px)', height: 'clamp(56px, 8vw, 72px)', borderRadius: '16px', border: '1.5px solid',
                 borderColor: isActive ? `${color}88` : 'rgba(255,255,255,0.1)',
                 background: isActive ? `linear-gradient(135deg, ${color}dd, ${color}88)` : 'rgba(255,255,255,0.04)',
                 boxShadow: isSelected ? `0 0 36px ${color}55, 0 0 16px ${color}33` : isActive ? `0 0 14px ${color}33` : '0 4px 20px rgba(0,0,0,0.3)',
@@ -434,10 +513,7 @@ function ThankYouScreen({ onReset }: {
       padding: '32px 24px', overflow: 'hidden',
     }}>
       {/* 背景 */}
-      <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'hidden' }}>
-        <div className="orb" style={{ width: 600, height: 600, background: '#2563eb18', top: '-20%', right: '-15%', animationDuration: '14s' }} />
-        <div className="orb" style={{ width: 400, height: 400, background: '#06b6d418', bottom: '-10%', left: '-10%', animationDuration: '10s', animationDelay: '-3s' }} />
-      </div>
+      <AmbientOrbs />
 
       {/* 成功图标 */}
       <motion.div
@@ -597,14 +673,9 @@ export default function App() {
       style={{ position: 'fixed', inset: 0, display: 'flex', flexDirection: 'column', background: '#050508', overflowY: 'auto', overflowX: 'hidden', WebkitOverflowScrolling: 'touch' }}
     >
       {/* 背景 */}
-      <div style={{ position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none', overflow: 'hidden' }}>
-        <div className="orb" style={{ width: 600, height: 600, background: '#2563eb18', top: '-20%', right: '-15%', animationDuration: '14s' }} />
-        <div className="orb" style={{ width: 400, height: 400, background: '#06b6d418', bottom: '-10%', left: '-10%', animationDuration: '10s', animationDelay: '-3s' }} />
-        <div className="bg-grid" style={{ position: 'absolute', inset: 0 }} />
-      </div>
-
-      {/* 动态粒子 */}
-      <ParticleField />
+      <AmbientOrbs />
+      <MouseSparkle />
+      <div className="bg-grid" style={{ position: 'fixed', inset: 0, zIndex: 0 }} />
 
       {/* 彩屑 */}
       <AnimatePresence>
@@ -617,23 +688,36 @@ export default function App() {
       </AnimatePresence>
 
       {/* 顶部进度 */}
-      <div style={{ position: 'relative', zIndex: 10, padding: '20px 20px 0' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '14px', maxWidth: '640px', margin: '0 auto' }}>
-          <div style={{ flex: 1, height: '5px', background: 'rgba(255,255,255,0.06)', borderRadius: '99px', overflow: 'hidden' }}>
-            <motion.div animate={{ width: `${progress}%` }} transition={{ type: 'spring', stiffness: 120, damping: 22 }}
-              style={{ height: '100%', background: THEME.gradient, borderRadius: '99px' }} />
+      <div style={{ position: 'relative', zIndex: 10, padding: '20px 24px 0', maxWidth: '640px', margin: '0 auto', width: '100%' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          {/* 圆形进度环 */}
+          <CircularProgress pct={progress} />
+
+          {/* 进度文字 */}
+          <div style={{ flex: 1 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '8px' }}>
+              <span style={{ fontSize: 'clamp(14px, 2vw, 18px)', fontWeight: '800', color: '#f0f4ff' }}>
+                Question {current + 1}
+              </span>
+              <span style={{ fontSize: '13px', color: 'rgba(240,244,255,0.4)' }}>
+                of {QUESTIONS.length}
+              </span>
+            </div>
+            {/* 细进度条 */}
+            <div style={{ height: '4px', background: 'rgba(255,255,255,0.06)', borderRadius: '99px', overflow: 'hidden' }}>
+              <motion.div animate={{ width: `${progress}%` }} transition={{ type: 'spring', stiffness: 100, damping: 20 }}
+                style={{ height: '100%', background: THEME.gradient, borderRadius: '99px' }} />
+            </div>
           </div>
-          <span style={{ fontSize: '13px', fontWeight: '700', color: 'rgba(240,244,255,0.45)', flexShrink: 0 }}>
-            {current + 1} / {QUESTIONS.length}
-          </span>
         </div>
+
         {/* 区块进度 */}
-        <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginTop: '14px' }}>
+        <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginTop: '16px' }}>
           {sections.map((_, i) => (
             <motion.div key={i}
-              animate={{ width: sectionIdx === i ? 24 : 8, background: sectionIdx >= i ? THEME.primary : 'rgba(255,255,255,0.15)' }}
+              animate={{ width: sectionIdx === i ? 32 : 8, background: sectionIdx >= i ? THEME.primary : 'rgba(255,255,255,0.1)' }}
               transition={{ type: 'spring', stiffness: 300, damping: 25 }}
-              style={{ height: '6px', borderRadius: '99px' }}
+              style={{ height: '5px', borderRadius: '99px' }}
             />
           ))}
         </div>
@@ -643,7 +727,7 @@ export default function App() {
       <motion.div key={`sec-${current}`} initial={{ opacity: 0, scale: 0.88 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.3 }}
         style={{
           position: 'relative', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center',
-          gap: '8px', margin: '16px auto 0', padding: '6px 16px', borderRadius: '99px', fontSize: '12px', fontWeight: '600',
+          gap: '8px', margin: '16px auto 0', padding: '6px 16px', borderRadius: '99px', fontSize: 'clamp(11px, 1.2vw, 13px)', fontWeight: '600',
           letterSpacing: '0.04em', color: THEME.accent, background: `${THEME.primary}14`,
           border: `1px solid ${THEME.primary}33`, backdropFilter: 'blur(8px)', width: 'fit-content',
         }}>
@@ -666,7 +750,7 @@ export default function App() {
           >
             <motion.h2
               initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05, duration: 0.35 }}
-              style={{ fontSize: 'clamp(15px, 4vw, 20px)', fontWeight: '800', lineHeight: 1.55, color: '#f0f4ff', textAlign: 'center', marginBottom: '8px' }}>
+              style={{ fontSize: 'clamp(16px, 2.5vw, 26px)', fontWeight: '800', lineHeight: 1.6, color: '#f0f4ff', textAlign: 'center', marginBottom: '10px' }}>
               {q.question.split('\n').map((line, i) => (
                 <span key={i} style={{ display: i === 0 ? 'block' : 'block', fontSize: i === 0 ? 'inherit' : 'clamp(13px, 3.5vw, 17px)', color: i === 0 ? '#f0f4ff' : 'rgba(240,244,255,0.6)', fontWeight: i === 0 ? '800' : '600' }}>
                   {line}
@@ -676,7 +760,7 @@ export default function App() {
 
             {q.subtext && (
               <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }}
-                style={{ fontSize: '13px', color: 'rgba(240,244,255,0.38)', textAlign: 'center', marginBottom: '28px', lineHeight: 1.6 }}>
+                style={{ fontSize: 'clamp(12px, 1.5vw, 15px)', color: 'rgba(240,244,255,0.4)', textAlign: 'center', marginBottom: '24px', lineHeight: 1.7 }}>
                 {q.subtext}
               </motion.p>
             )}
