@@ -21,6 +21,8 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS surveys (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     submitted_at TEXT DEFAULT (datetime('now')),
+    gender TEXT,
+    age TEXT,
     gpa TEXT,
     programming_grade TEXT,
     ai_ratio TEXT,
@@ -42,6 +44,15 @@ db.exec(`
   );
 `)
 
+// 迁移旧数据库（已有表但缺字段）
+const columns = db.prepare("PRAGMA table_info(surveys)").all().map((r: { name: string }) => r.name)
+if (!columns.includes('gender')) {
+  try { db.exec("ALTER TABLE surveys ADD COLUMN gender TEXT") } catch (_) {}
+}
+if (!columns.includes('age')) {
+  try { db.exec("ALTER TABLE surveys ADD COLUMN age TEXT") } catch (_) {}
+}
+
 // ─── 中间件 ─────────────────────────────────────────────────────────────────
 
 app.use(cors())
@@ -62,13 +73,13 @@ app.post('/api/survey', (req, res) => {
 
   const stmt = db.prepare(`
     INSERT INTO surveys (
-      gpa, programming_grade, ai_ratio,
+      gender, age, gpa, programming_grade, ai_ratio,
       rq1_autonomy, rq1_independence, rq1_competence, rq1_belonging,
       rq2_review, rq2_detection, rq2_debug, rq2_understanding,
       rq3_depth, rq3_mastery, rq3_reproduce, rq3_evaluate,
       rq_total_score, rq_avg_score, raw_json
     ) VALUES (
-      @gpa, @programming_grade, @ai_ratio,
+      @gender, @age, @gpa, @programming_grade, @ai_ratio,
       @rq1_autonomy, @rq1_independence, @rq1_competence, @rq1_belonging,
       @rq2_review, @rq2_detection, @rq2_debug, @rq2_understanding,
       @rq3_depth, @rq3_mastery, @rq3_reproduce, @rq3_evaluate,
@@ -77,6 +88,8 @@ app.post('/api/survey', (req, res) => {
   `)
 
   const info = stmt.run({
+    gender: String(answers.gender || ''),
+    age: String(answers.age || ''),
     gpa: String(answers.gpa || ''),
     programming_grade: String(answers.programming_grade || ''),
     ai_ratio: String(answers.ai_ratio || ''),
@@ -109,6 +122,8 @@ app.get('/api/stats', (req, res) => {
   const rq3Avg = db.prepare('SELECT AVG((rq3_depth + rq3_mastery + rq3_reproduce + rq3_evaluate) / 4.0) as avg FROM surveys WHERE rq3_depth IS NOT NULL').get()
   const gpaDist = db.prepare("SELECT gpa, COUNT(*) as count FROM surveys WHERE gpa != '' GROUP BY gpa").all()
   const aiDist = db.prepare("SELECT ai_ratio, COUNT(*) as count FROM surveys WHERE ai_ratio != '' GROUP BY ai_ratio").all()
+  const genderDist = db.prepare("SELECT gender, COUNT(*) as count FROM surveys WHERE gender != '' GROUP BY gender").all()
+  const ageDist = db.prepare("SELECT age, COUNT(*) as count FROM surveys WHERE age != '' GROUP BY age").all()
 
   res.json({
     totalResponses: total.count,
@@ -119,6 +134,8 @@ app.get('/api/stats', (req, res) => {
     rq3Avg: rq3Avg.avg ?? 0,
     gpaDistribution: gpaDist,
     aiDistribution: aiDist,
+    genderDistribution: genderDist,
+    ageDistribution: ageDist,
   })
 })
 
@@ -209,7 +226,7 @@ async function l(){
     const k=['rq1_autonomy','rq1_independence','rq1_competence','rq1_belonging','rq2_review','rq2_detection','rq2_debug','rq2_understanding','rq3_depth','rq3_mastery','rq3_reproduce','rq3_evaluate']
     const sc=k.map(x=>r[x]).filter(v=>v!=null)
     const avg=sc.length?(sc.reduce((a,b)=>a+b,0)/sc.length).toFixed(2):'—'
-    return'<div class=row><div class=id>#'+r.id+'</div><div style="flex:1"><div class=m>'+d+' · GPA '+r.gpa+' · Code '+r.programming_grade+' · AI '+r.ai_ratio+'</div><div class=pbar><div class=pfill style=width:'+(parseFloat(avg)/5*100)+'%></div></div></div><div class=score>'+avg+'</div><button class=del onclick="del('+r.id+')">×</button></div>'
+    return'<div class=row><div class=id>#'+r.id+'</div><div style="flex:1"><div class=m>'+d+' · '+r.gender+' · '+r.age+' · GPA '+r.gpa+' · Code '+r.programming_grade+' · AI '+r.ai_ratio+'</div><div class=pbar><div class=pfill style=width:'+(parseFloat(avg)/5*100)+'%></div></div></div><div class=score>'+avg+'</div><button class=del onclick="del('+r.id+')">×</button></div>'
   }).join('')
 }
 async function del(id){if(!confirm('Delete #'+id+'?'))return;await fetch(A+'/api/survey/'+id,{method:'DELETE'});l()}

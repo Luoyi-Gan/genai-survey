@@ -24,6 +24,24 @@ const THEME = {
 // ─── 数据 ───────────────────────────────────────────────────────────────────
 
 const QUESTIONS = [
+  { id: 'gender', type: 'single-choice', section: 'Background / 学业背景', icon: '👤',
+    question: 'What is your gender? / 你的性别是？',
+    subtext: 'This helps us understand demographic differences in AI learning patterns',
+    options: [
+      { label: 'M', value: 'M', text: 'Male / 男', sub: '' },
+      { label: 'F', value: 'F', text: 'Female / 女', sub: '' },
+      { label: 'O', value: 'O', text: 'Other / 其他', sub: '' },
+      { label: 'P', value: 'P', text: 'Prefer not to say / 不方便透露', sub: '' },
+  ]},
+  { id: 'age', type: 'single-choice', section: 'Background / 学业背景', icon: '🎂',
+    question: 'What is your age range? / 你的年龄区间是？',
+    subtext: '',
+    options: [
+      { label: '1', value: '18-22', text: '18 – 22', sub: 'Undergraduate / 本科在读' },
+      { label: '2', value: '23-26', text: '23 – 26', sub: 'Graduate / 硕士在读' },
+      { label: '3', value: '27-30', text: '27 – 30', sub: 'Early career / 职场新人' },
+      { label: '4', value: '30+', text: '30+', sub: '30 岁以上' },
+  ]},
   { id: 'gpa', type: 'single-choice', section: 'Background / 学业背景', icon: '🎓',
     question: 'What is your GPA range? / 你的 GPA 区间是？',
     subtext: 'Select your overall GPA for the most recent academic year',
@@ -33,9 +51,17 @@ const QUESTIONS = [
       { label: 'C', value: 'C', text: '2.5 – 2.99', sub: 'Average / 中等' },
       { label: 'D', value: 'D', text: 'Below 2.5', sub: '2.5 以下' },
   ]},
-  { id: 'programming_grade', type: 'text-input', section: 'Background / 学业背景', icon: '💻',
-    question: 'Average grade in programming courses? / 编程课平均成绩？',
-    subtext: 'Enter a number from 0 to 100', placeholder: '0–100' },
+  { id: 'programming_grade', type: 'single-choice', section: 'Background / 学业背景', icon: '💻',
+    question: 'What is your average grade in programming courses? / 编程课平均成绩等级是？',
+    subtext: 'If you\'re not sure, select the range that best describes your performance',
+    options: [
+      { label: 'A', value: 'A', text: 'A / 90-100', sub: 'Excellent / 优秀' },
+      { label: 'A-', value: 'A-', text: 'A- / 85-89', sub: 'Very Good / 良好偏上' },
+      { label: 'B+', value: 'B+', text: 'B+ / 80-84', sub: 'Good / 良好' },
+      { label: 'B', value: 'B', text: 'B / 75-79', sub: 'Above Average / 中上' },
+      { label: 'B-', value: 'B-', text: 'B- / 70-74', sub: 'Average / 中等' },
+      { label: 'C', value: 'C', text: 'C or below / C 或以下', sub: '' },
+  ]},
   { id: 'ai_ratio', type: 'single-choice', section: 'Background / 学业背景', icon: '🤖',
     question: 'What proportion of your code is AI-generated? / AI 生成代码占总代码的比例？',
     subtext: 'AI = ChatGPT / Copilot / Tongyi / etc.',
@@ -396,8 +422,10 @@ function ThankYouScreen({ answers, onReset }: {
         }}
       >
         {[
+          ['Gender / 性别', String(answers.gender || '—')],
+          ['Age / 年龄', String(answers.age || '—')],
           ['GPA', String(answers.gpa || '—')],
-          ['Code Grade / 编程课', answers.programming_grade ? `${answers.programming_grade}` : '—'],
+          ['Code Grade / 编程成绩', String(answers.programming_grade || '—')],
           ['AI Ratio / AI 占比', String(answers.ai_ratio || '—')],
         ].map(([k, v]) => (
           <div key={String(k)} style={{
