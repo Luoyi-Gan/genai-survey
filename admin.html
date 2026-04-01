@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Survey Admin · 问卷管理</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif; background: #050508; color: #f0f4ff; min-height: 100vh; padding: 32px 24px; }
+    h1 { font-size: 24px; font-weight: 900; background: linear-gradient(135deg, #2563eb, #06b6d4); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 8px; }
+    .subtitle { color: rgba(240,244,255,0.4); font-size: 14px; margin-bottom: 32px; }
+    .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px; margin-bottom: 32px; }
+    .stat-card { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 20px; padding: 20px; text-align: center; }
+    .stat-card .value { font-size: 36px; font-weight: 900; background: linear-gradient(135deg, #2563eb, #06b6d4); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .stat-card .label { font-size: 12px; color: rgba(240,244,255,0.4); margin-top: 4px; }
+    .section-title { font-size: 16px; font-weight: 700; color: rgba(240,244,255,0.8); margin-bottom: 16px; padding-left: 4px; }
+    .responses { display: flex; flex-direction: column; gap: 12px; }
+    .response-card { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: 16px; padding: 16px 20px; display: flex; justify-content: space-between; align-items: center; }
+    .response-card .id { font-size: 12px; color: rgba(240,244,255,0.3); min-width: 32px; }
+    .response-card .info { flex: 1; }
+    .response-card .meta { font-size: 13px; color: rgba(240,244,255,0.6); margin-bottom: 4px; }
+    .response-card .scores { display: flex; gap: 16px; font-size: 12px; color: rgba(240,244,255,0.4); }
+    .response-card .score-badge { background: rgba(37,99,235,0.15); border: 1px solid rgba(37,99,235,0.3); border-radius: 99px; padding: 2px 10px; color: #60a5fa; }
+    .response-card .del-btn { background: rgba(244,63,94,0.1); border: 1px solid rgba(244,63,94,0.2); border-radius: 8px; padding: 6px 12px; color: #f87171; cursor: pointer; font-size: 12px; transition: all 0.2s; }
+    .response-card .del-btn:hover { background: rgba(244,63,94,0.2); }
+    .export-bar { display: flex; gap: 12px; margin-bottom: 24px; flex-wrap: wrap; }
+    .export-btn { background: linear-gradient(135deg, #2563eb, #06b6d4); border: none; border-radius: 12px; padding: 10px 20px; color: #fff; font-size: 14px; font-weight: 600; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 8px; transition: opacity 0.2s; }
+    .export-btn:hover { opacity: 0.85; }
+    .export-btn.secondary { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); }
+    .empty { text-align: center; padding: 60px; color: rgba(240,244,255,0.3); font-size: 15px; }
+    .rq-section { margin-bottom: 12px; }
+    .rq-label { font-size: 11px; color: rgba(240,244,255,0.3); margin-bottom: 4px; }
+    .rq-bars { display: flex; gap: 6px; align-items: center; }
+    .rq-bar-bg { flex: 1; height: 6px; background: rgba(255,255,255,0.06); border-radius: 99px; overflow: hidden; }
+    .rq-bar-fill { height: 100%; background: linear-gradient(90deg, #2563eb, #06b6d4); border-radius: 99px; transition: width 0.3s; }
+    .rq-score { font-size: 12px; font-weight: 700; color: #60a5fa; min-width: 24px; text-align: right; }
+  </style>
+</head>
+<body>
+  <h1>Survey Admin</h1>
+  <p class="subtitle">编程学习与 GenAI 使用情况调研 · 数据管理面板</p>
+
+  <div class="stats" id="stats"></div>
+
+  <div class="export-bar">
+    <a href="/api/export/csv" class="export-btn" download>📥 Export CSV</a>
+    <a href="/api/export/json" class="export-btn secondary" download>📋 Export JSON</a>
+  </div>
+
+  <div class="section-title">Responses / 全部作答 (<span id="count">0</span>)</div>
+  <div class="responses" id="responses"></div>
+
+  <script>
+    const API = window.location.origin
+
+    async function load() {
+      const [statsRes, surveysRes] = await Promise.all([
+        fetch(`${API}/api/stats`),
+        fetch(`${API}/api/surveys`)
+      ])
+      const stats = await statsRes.json()
+      const { surveys } = await surveysRes.json()
+
+      document.getElementById('count').textContent = stats.totalResponses
+
+      // Stats cards
+      const colors = ['#2563eb', '#06b6d4', '#22c55e', '#f97316']
+      document.getElementById('stats').innerHTML = [
+        { label: 'Total Responses / 总人数', value: stats.totalResponses },
+        { label: 'RQ Avg Score / RQ 均分', value: stats.rqOverallAvg?.toFixed(2) ?? '—' },
+        { label: 'RQ1 Avg / 胜任感均分', value: stats.rq1Avg?.toFixed(2) ?? '—' },
+        { label: 'RQ2 Avg / 逻辑力均分', value: stats.rq2Avg?.toFixed(2) ?? '—' },
+        { label: 'RQ3 Avg / 留存均分', value: stats.rq3Avg?.toFixed(2) ?? '—' },
+      ].map((s, i) => `
+        <div class="stat-card">
+          <div class="value">${s.value}</div>
+          <div class="label">${s.label}</div>
+        </div>
+      `).join('')
+
+      // Responses
+      if (!surveys.length) {
+        document.getElementById('responses').innerHTML = '<div class="empty">No responses yet · 暂无数据</div>'
+        return
+      }
+
+      const dimensionLabels = {
+        rq1_autonomy: 'Autonomy', rq1_independence: 'Independence',
+        rq1_competence: 'Competence', rq1_belonging: 'Ownership',
+        rq2_review: 'Review', rq2_detection: 'Detection',
+        rq2_debug: 'Debug', rq2_understanding: 'Understanding',
+        rq3_depth: 'Depth', rq3_mastery: 'Mastery',
+        rq3_reproduce: 'Reproduce', rq3_evaluate: 'Evaluate',
+      }
+
+      document.getElementById('responses').innerHTML = surveys.map(r => {
+        const date = new Date(r.submitted_at).toLocaleString('zh-CN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+        const rqKeys = ['rq1_autonomy', 'rq1_independence', 'rq1_competence', 'rq1_belonging',
+                        'rq2_review', 'rq2_detection', 'rq2_debug', 'rq2_understanding',
+                        'rq3_depth', 'rq3_mastery', 'rq3_reproduce', 'rq3_evaluate']
+        const rqScores = rqKeys.map(k => r[k]).filter(v => v != null)
+        const rqAvg = rqScores.length ? (rqScores.reduce((a, b) => a + b, 0) / rqScores.length).toFixed(2) : '—'
+
+        return `
+          <div class="response-card">
+            <div class="id">#${r.id}</div>
+            <div class="info">
+              <div class="meta">${date} · GPA ${r.gpa || '—'} · Code ${r.programming_grade || '—'} · AI ${r.ai_ratio || '—'}</div>
+              <div class="rq-bars">
+                <div class="rq-bar-bg"><div class="rq-bar-fill" style="width:${(parseFloat(rqAvg) / 5 * 100)}%"></div></div>
+                <div class="rq-score">${rqAvg}</div>
+              </div>
+            </div>
+            <button class="del-btn" onclick="del(${r.id})">Delete</button>
+          </div>
+        `
+      }).join('')
+    }
+
+    async function del(id) {
+      if (!confirm(`Delete response #${id}?`)) return
+      await fetch(`${API}/api/survey/${id}`, { method: 'DELETE' })
+      load()
+    }
+
+    load()
+  </script>
+</body>
+</html>
