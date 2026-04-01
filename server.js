@@ -7,7 +7,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const PORT = process.env.PORT || 3001
-const IS_PROD = process.env.NODE_ENV === 'production'
+const IS_PROD = process.env.NODE_ENV === 'production' || process.env.RENDER === 'true'
 
 const DATA_DIR = IS_PROD ? '/data' : join(__dirname, 'data')
 if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true })
