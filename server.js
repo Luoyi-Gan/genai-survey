@@ -273,7 +273,6 @@ l()
 const distPath = join(__dirname, 'dist')
 app.use(express.static(distPath))
 app.get('/', (_, res) => res.sendFile(join(distPath, 'index.html')))
-app.get('/admin', (_, res) => {
 
 // ─── 启动 ──────────────────────────────────────────────────────────────────
 
