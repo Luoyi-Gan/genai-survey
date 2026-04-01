@@ -25,6 +25,10 @@ const THEME = {
 // ─── 数据 ───────────────────────────────────────────────────────────────────
 
 const QUESTIONS = [
+  { id: 'notice', type: 'notice', section: 'Notice / 须知', icon: '📋',
+    question: 'Welcome / 欢迎参与调研',
+    noticeText: '本调研旨在了解编程学习与生成式 AI 的使用情况，大约需要 3–5 分钟。所有问题均匿名处理，数据仅用于学术研究。请根据你的真实情况作答。\n\nThis survey takes ~3–5 minutes. All responses are anonymous and used solely for academic research. Please answer based on your actual experience.',
+  },
   { id: 'gender', type: 'single-choice', section: 'Background / 学业背景', icon: '👤',
     question: 'What is your gender? / 你的性别是？',
     subtext: 'This helps us understand demographic differences in AI learning patterns',
@@ -121,15 +125,6 @@ function getSectionIdx(q: (typeof QUESTIONS)[0]) {
   if (q.id.startsWith('rq1')) return 1
   if (q.id.startsWith('rq2')) return 2
   return 3
-}
-
-function calcRqScore(answers: Record<string, string | number>) {
-  const entries = Object.entries(answers).filter(([k]) => k.startsWith('rq'))
-  const total = entries.reduce((s, [, v]) => s + (Number(v) || 0), 0)
-  const max = entries.length * 5
-  const avg = entries.length > 0 ? +(total / entries.length).toFixed(2) : 0
-  const pct = max > 0 ? Math.round((total / max) * 100) : 0
-  return { total, max, avg, pct }
 }
 
 // ─── 按钮 ───────────────────────────────────────────────────────────────────
@@ -321,12 +316,9 @@ function TextInputQuestion({ value, onChange }: { value: string; onChange: (v: s
 
 // ─── 简化结果页 ─────────────────────────────────────────────────────────────
 
-function ThankYouScreen({ answers, onReset }: {
-  answers: Record<string, string | number>; onReset: () => void
+function ThankYouScreen({ onReset }: {
+  onReset: () => void
 }) {
-  const score = calcRqScore(answers)
-  const rqCount = Object.entries(answers).filter(([k]) => k.startsWith('rq')).length
-
   return (
     <div style={{
       position: 'fixed', inset: 0, display: 'flex', flexDirection: 'column',
@@ -361,92 +353,27 @@ function ThankYouScreen({ answers, onReset }: {
         transition={{ delay: 0.2, duration: 0.5 }}
         style={{ fontSize: '28px', fontWeight: '900', color: '#f0f4ff', textAlign: 'center', marginBottom: '8px' }}
       >
-        Response Submitted!
+        感谢你的参与
       </motion.h1>
 
       <motion.p
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.35 }}
-        style={{ fontSize: '16px', color: 'rgba(240,244,255,0.5)', textAlign: 'center', marginBottom: '36px' }}
+        style={{ fontSize: '16px', color: 'rgba(240,244,255,0.5)', textAlign: 'center', marginBottom: '48px' }}
       >
-        感谢你的参与 · Thank you!
+        Thank you for your time!
       </motion.p>
 
-      {/* 得分卡片 */}
-      <motion.div
-        initial={{ opacity: 0, scale: 0.9 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ delay: 0.4 }}
-        style={{
-          background: THEME.glassBg, border: `1px solid ${THEME.glassBorder}`,
-          borderRadius: '28px', padding: '28px 40px', textAlign: 'center',
-          backdropFilter: 'blur(24px)', marginBottom: '32px',
-          boxShadow: `0 0 60px ${THEME.primaryGlow}`,
-        }}
-      >
-        <p style={{ fontSize: '12px', color: 'rgba(240,244,255,0.4)', marginBottom: '8px', letterSpacing: '0.05em' }}>
-          RQ SCORE / RQ 综合得分
-        </p>
-        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: '6px' }}>
-          <span style={{ fontSize: '56px', fontWeight: '900', background: THEME.gradient, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-            {score.total}
-          </span>
-          <span style={{ fontSize: '22px', color: 'rgba(240,244,255,0.3)' }}>/ {score.max}</span>
-        </div>
-        <div style={{ display: 'flex', gap: '32px', justifyContent: 'center', marginTop: '16px' }}>
-          <div>
-            <div style={{ fontSize: '22px', fontWeight: '800', color: THEME.accent }}>{score.avg}</div>
-            <div style={{ fontSize: '11px', color: 'rgba(240,244,255,0.3)' }}>Avg / 均分</div>
-          </div>
-          <div style={{ width: '1px', background: 'rgba(255,255,255,0.1)' }} />
-          <div>
-            <div style={{ fontSize: '22px', fontWeight: '800', color: THEME.primary }}>{score.pct}%</div>
-            <div style={{ fontSize: '11px', color: 'rgba(240,244,255,0.3)' }}>Percentile / 百分位</div>
-          </div>
-          <div style={{ width: '1px', background: 'rgba(255,255,255,0.1)' }} />
-          <div>
-            <div style={{ fontSize: '22px', fontWeight: '800', color: 'rgba(240,244,255,0.7)' }}>{rqCount}</div>
-            <div style={{ fontSize: '11px', color: 'rgba(240,244,255,0.3)' }}>Questions / 题数</div>
-          </div>
-        </div>
-      </motion.div>
-
-      {/* 背景信息 */}
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.55 }}
-        style={{
-          display: 'flex', gap: '12px', flexWrap: 'wrap', justifyContent: 'center',
-          marginBottom: '40px',
-        }}
-      >
-        {[
-          ['Gender / 性别', String(answers.gender || '—')],
-          ['Age / 年龄', String(answers.age || '—')],
-          ['GPA', String(answers.gpa || '—')],
-          ['Code Grade / 编程成绩', String(answers.programming_grade || '—')],
-          ['AI Ratio / AI 占比', String(answers.ai_ratio || '—')],
-        ].map(([k, v]) => (
-          <div key={String(k)} style={{
-            padding: '6px 14px', borderRadius: '99px', fontSize: '12px',
-            background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
-            color: 'rgba(240,244,255,0.6)',
-          }}>
-            <span style={{ color: THEME.accent }}>{k}: </span>{v}
-          </div>
-        ))}
-      </motion.div>
+      <p style={{ fontSize: '13px', color: 'rgba(240,244,255,0.25)', textAlign: 'center', marginBottom: '40px', lineHeight: 1.8 }}>
+        数据已匿名采集，仅用于学术研究<br />
+        Data is collected anonymously · Academic research only
+      </p>
 
       {/* 重填按钮 */}
       <NavButton onClick={onReset}>
-        <RotateCcw size={15} />Start Over / 重新填写
+        <RotateCcw size={15} />重新填写 / Start Over
       </NavButton>
-
-      <p style={{ position: 'absolute', bottom: '24px', fontSize: '11px', color: 'rgba(240,244,255,0.2)', textAlign: 'center' }}>
-        Data is collected anonymously · 数据已匿名采集
-      </p>
     </div>
   )
 }
@@ -502,6 +429,7 @@ export default function App() {
   }
 
   const isAnswered = (() => {
+    if (q.type === 'notice') return true
     if (q.type === 'likert' || q.type === 'single-choice') return answers[q.id] !== undefined
     if (q.type === 'text-input') return !!answers[q.id] && String(answers[q.id]).trim() !== ''
     return false
@@ -535,7 +463,7 @@ export default function App() {
   }
 
   if (showThankYou) {
-    return <ThankYouScreen answers={answers} onReset={handleReset} />
+    return <ThankYouScreen onReset={handleReset} />
   }
 
   const selectedScore = Number(answers[q.id]) || 0
@@ -618,6 +546,34 @@ export default function App() {
                 style={{ fontSize: '13px', color: 'rgba(240,244,255,0.38)', textAlign: 'center', marginBottom: '28px', lineHeight: 1.6 }}>
                 {q.subtext}
               </motion.p>
+            )}
+
+            {q.type === 'notice' && q.noticeText && (
+              <motion.div
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.15 }}
+                style={{
+                  background: 'rgba(37,99,235,0.08)',
+                  border: '1px solid rgba(37,99,235,0.25)',
+                  borderRadius: '20px',
+                  padding: '20px 24px',
+                  marginTop: '8px',
+                  backdropFilter: 'blur(12px)',
+                }}
+              >
+                {(q.noticeText as string).split('\n').map((line, i) => (
+                  <p key={i} style={{
+                    fontSize: '14px',
+                    lineHeight: 1.8,
+                    color: i === 0 ? 'rgba(240,244,255,0.7)' : 'rgba(240,244,255,0.5)',
+                    marginBottom: i === 0 ? '12px' : '0',
+                    textAlign: 'center',
+                  }}>
+                    {line}
+                  </p>
+                ))}
+              </motion.div>
             )}
 
             {q.type === 'single-choice' && (
