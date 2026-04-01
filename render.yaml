@@ -1,0 +1,5 @@
+{
+  "buildCommand": "npm install && node server.js",
+  "startCommand": "node server.js",
+  "node": "20"
+}
