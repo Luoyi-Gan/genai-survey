@@ -269,16 +269,14 @@ l()
 </script></body></html>`)
 })
 
-// ─── 静态文件（生产环境） ───────────────────────────────────────────────────
+// ─── 静态文件（前端） ──────────────────────────────────────────────────────────
 
-if (IS_PROD) {
-  const distPath = join(__dirname, 'dist')
-  app.use(express.static(distPath))
-  app.get('*', (req, res) => {
-    if (!req.path.startsWith('/api')) res.sendFile(join(distPath, 'index.html'))
-    else res.status(404).json({ error: 'Not found' })
-  })
-}
+const distPath = join(__dirname, 'dist')
+app.use(express.static(distPath))
+app.get('*', (req, res) => {
+  if (!req.path.startsWith('/api')) res.sendFile(join(distPath, 'index.html'))
+  else res.status(404).json({ error: 'Not found' })
+})
 
 // ─── 启动 ──────────────────────────────────────────────────────────────────
 
