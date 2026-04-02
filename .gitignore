@@ -24,3 +24,10 @@ dist-ssr
 
 # Survey DB - do NOT commit, this is ephemeral on server
 data/
+
+# wrangler files
+.wrangler
+.dev.vars*
+!.dev.vars.example
+.env*
+!.env.example
