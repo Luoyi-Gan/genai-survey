@@ -503,8 +503,9 @@ function TextInputQuestion({ value, onChange }: { value: string; onChange: (v: s
 
 // ─── 简化结果页 ─────────────────────────────────────────────────────────────
 
-function ThankYouScreen({ onReset }: {
+function ThankYouScreen({ onReset, aiTip }: {
   onReset: () => void
+  aiTip: string
 }) {
   return (
     <div style={{
@@ -544,12 +545,37 @@ function ThankYouScreen({ onReset }: {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.35 }}
-        style={{ fontSize: '16px', color: 'rgba(240,244,255,0.5)', textAlign: 'center', marginBottom: '48px' }}
+        style={{ fontSize: '16px', color: 'rgba(240,244,255,0.5)', textAlign: 'center', marginBottom: '28px' }}
       >
         Thank you for your time!
       </motion.p>
 
-      <p style={{ fontSize: '13px', color: 'rgba(240,244,255,0.25)', textAlign: 'center', marginBottom: '40px', lineHeight: 1.8 }}>
+      {/* AI 个性化建议 */}
+      {aiTip && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9, y: 16 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          transition={{ delay: 0.5, type: 'spring', stiffness: 260, damping: 20 }}
+          style={{
+            maxWidth: '420px', width: '90%', marginBottom: '28px',
+            background: 'rgba(255,255,255,0.04)',
+            border: '1px solid rgba(37,99,235,0.3)',
+            borderRadius: '20px', padding: '20px 24px',
+            backdropFilter: 'blur(20px)',
+            boxShadow: '0 0 40px rgba(37,99,235,0.15), 0 8px 32px rgba(0,0,0,0.3)',
+            textAlign: 'center',
+          }}
+        >
+          <div style={{ fontSize: '11px', fontWeight: '700', letterSpacing: '0.1em', color: THEME.primary, marginBottom: '10px', textTransform: 'uppercase' }}>
+            ✨ AI 小建议
+          </div>
+          <p style={{ fontSize: 'clamp(14px, 2vw, 16px)', color: 'rgba(240,244,255,0.85)', lineHeight: 1.8, fontWeight: '500' }}>
+            {aiTip}
+          </p>
+        </motion.div>
+      )}
+
+      <p style={{ fontSize: '13px', color: 'rgba(240,244,255,0.25)', textAlign: 'center', marginBottom: '32px', lineHeight: 1.8 }}>
         数据已匿名采集，仅用于学术研究<br />
         Data is collected anonymously · Academic research only
       </p>
@@ -572,6 +598,7 @@ export default function App() {
   const [showThankYou, setShowThankYou] = useState(false)
   const [showConfetti, setShowConfetti] = useState(false)
   const [milestone, setMilestone] = useState<number | null>(null)
+  const [aiTip, setAiTip] = useState<string>('')
   const touchStartX = useRef(0)
   const isScrolling = useRef(false)
   const lastMilestone = useRef<number>(0)
@@ -610,10 +637,27 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ answers }),
       })
+
+      // 获取 AI 个性化建议
+      let tip = ''
+      try {
+        const tipResp = await fetch(`${API_BASE}/api/ai-tip`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ answers }),
+        })
+        if (tipResp.ok) {
+          const tipData = await tipResp.json()
+          tip = tipData.tip || ''
+        }
+      } catch (_) {}
+
+      setAiTip(tip)
       setShowThankYou(true)
     } catch (err) {
       console.error('Submit failed:', err)
       // 网络错误时仍显示结果
+      setAiTip('')
       setShowThankYou(true)
     } finally {
       setIsSubmitting(false)
@@ -621,7 +665,7 @@ export default function App() {
   }
 
   const handleReset = () => {
-    setAnswers({}); setCurrent(0); setShowThankYou(false); setDirection(1)
+    setAnswers({}); setCurrent(0); setShowThankYou(false); setDirection(1); setAiTip('')
   }
 
   const isAnswered = (() => {
@@ -659,7 +703,7 @@ export default function App() {
   }
 
   if (showThankYou) {
-    return <ThankYouScreen onReset={handleReset} />
+    return <ThankYouScreen onReset={handleReset} aiTip={aiTip} />
   }
 
   const selectedScore = Number(answers[q.id]) || 0
