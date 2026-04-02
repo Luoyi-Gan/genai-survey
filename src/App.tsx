@@ -581,6 +581,7 @@ export default function App() {
   const sectionIdx = getSectionIdx(q)
 
   const goNext = useCallback(() => {
+    if (!isAnswered) return  // 防止跳过必答题
     if (current < QUESTIONS.length - 1) {
       setDirection(1)
       const nextProgress = ((current + 1) / (QUESTIONS.length - 1)) * 100

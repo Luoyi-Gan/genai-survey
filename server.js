@@ -158,7 +158,7 @@ app.get('/api/stats', (req, res) => {
   const rqAvg = one('SELECT AVG(rq_avg_score) as avg, AVG(rq_total_score) as total_avg FROM surveys') || {}
   const rq1Avg = one("SELECT AVG((rq1_autonomy + rq1_independence + rq1_competence + rq1_belonging) / 4.0) as avg FROM surveys WHERE rq1_autonomy IS NOT NULL") || {}
   const rq2Avg = one("SELECT AVG((rq2_review + rq2_detection + rq2_debug + rq2_understanding) / 4.0) as avg FROM surveys WHERE rq2_review IS NOT NULL") || {}
-  const rq3Avg = one("SELECT AVG((rq3_depth + rq3_mastery + rq3_reproduce + rq3_evaluate) / 4.0) as avg FROM surveys WHERE rq3_depth IS NOT NULL") || {}
+  const rq3Avg = one("SELECT AVG((COALESCE(rq3_depth,0) + COALESCE(rq3_mastery,0) + COALESCE(rq3_reproduce,0) + COALESCE(rq3_evaluate,0)) / 4.0) as avg FROM surveys") || {}
   const gpaDist = all("SELECT gpa as gpa, COUNT(*) as count FROM surveys WHERE gpa != '' GROUP BY gpa")
   const aiDist = all("SELECT ai_ratio as ai_ratio, COUNT(*) as count FROM surveys WHERE ai_ratio != '' GROUP BY ai_ratio")
   const genderDist = all("SELECT gender as gender, COUNT(*) as count FROM surveys WHERE gender != '' GROUP BY gender")
